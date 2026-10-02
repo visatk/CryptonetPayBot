@@ -1,5 +1,5 @@
 {
-	"name": "cryptonetpaybot",
+	"name": "cryptonetpay",
 	"version": "0.0.0",
 	"private": true,
 	"description": "Cryptonet Pay is a payment system based on apirone api that allows you to accept payments in crypto and transfer coins to users using our API",
@@ -26,7 +26,7 @@
 		"deploy": "npm run cf-typegen && npm run build && wrangler deploy",
 		"cf-typegen": "wrangler types",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate:remote": "wrangler d1 migrations apply cryptonetpaybot --remote"
+		"db:migrate:remote": "wrangler d1 migrations apply cryptonetpaydb --remote"
 	},
 	"dependencies": {
 		"@hono/zod-validator": "^0.9.0",
@@ -38,7 +38,6 @@
 		"react-dom": "^19.2.7",
 		"react-router-dom": "^7.18.2",
 		"sonner": "^2.0.7",
-		"web-push": "^3.6.7",
 		"tailwindcss": "^4.3.3",
 		"zod": "^4.4.3"
 	},
@@ -50,7 +49,6 @@
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.0.3",
 		"drizzle-kit": "^0.31.10",
-		"monetag-tg-sdk": "latest",
 		"oxlint": "^1.71.0",
 		"typescript": "~6.0.2",
 		"vite": "^8.1.1",

@@ -1,18 +1,19 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "cryptonetpaybot",
+	"name": "cryptonetpay",
 	"main": "worker/index.ts",
-	"compatibility_date": "2026-08-04",
+	"compatibility_date": "2026-10-02",
 	"assets": {
 		"directory": "./dist/",
 		"not_found_handling": "single-page-application",
 		"binding": "ASSETS"
 	},
 	"observability": {
-		"enabled": true
-	},
-	"cache": {
-		"enabled": true
+		"enabled": true,
+		"traces": {
+			"enabled": true,
+			"sampling_rate": 1.0
+		}
 	},
 	"upload_source_maps": true,
 	"compatibility_flags": [
@@ -24,24 +25,40 @@
 	"d1_databases": [
     {
       "binding": "DB",
-      "database_name": "cryptonetpaybot",
-      "database_id": "e15a4ecd-795c-4700-86a4-de1bfeff3660"
+      "database_name": "cryptonetpaydb",
+      "database_id": "a35da927-52d8-4a35-a669-3f5b26b200f6"
     }
   ],
+  "kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "4c0b2db193164e97a31f80b190749382"
+		}
+	],
   "queues": {
     "producers": [
       {
-        "binding": "BROADCAST_QUEUE",
-        "queue": "broadcast-queue"
+        "binding": "QUEUE",
+        "queue": "queue"
       }
     ],
     "consumers": [
       {
-        "queue": "broadcast-queue",
+        "queue": "queue",
         "max_batch_size": 10,
         "max_batch_timeout": 5,
-        "max_retries": 3
+        "max_retries": 3,
+        "dead_letter_queue": "queue-dlq"
       }
     ]
+  },
+  "triggers": {
+    "crons": [
+      "0 * * * *"
+    ]
+  },
+  "vars": {
+    "OWNER_ID": "5668179742",
+    "FORCE_JOIN_CHANNEL": "drkingbd"
   }
 }
