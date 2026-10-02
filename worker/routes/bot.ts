@@ -4,7 +4,7 @@ import { sendTelegram } from '../index';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { createApirone } from '../lib/apirone';
-import { generateInvoiceRef, nanoid } from '../lib/utils';
+import { generateInvoiceRef } from '../lib/utils';
 import { PLAN_LIMITS, SUPPORTED_CURRENCIES, TEXTS } from '../lib/constants';
 
 export const botRouter = new Hono<HonoEnv>();
