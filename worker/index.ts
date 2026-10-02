@@ -28,6 +28,8 @@ export type HonoEnv = {
   Bindings: Env;
   Variables: {
     db: ReturnType<typeof drizzle<typeof schema>>;
+    userId: number;
+    merchant: typeof schema.merchants.$inferSelect;
   };
 };
 

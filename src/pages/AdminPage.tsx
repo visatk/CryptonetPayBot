@@ -90,7 +90,7 @@ export default function AdminPage() {
 
       {/* Quick admin actions */}
       <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--tg-theme-hint-color)' }}>ACTIONS</h2>
-      <div className="rounded-2xl overflow-hidden divide-y" style={{ background: 'var(--tg-theme-bg-color)', divideColor: 'rgba(0,0,0,0.05)' }}>
+      <div className="rounded-2xl overflow-hidden divide-y" style={{ background: 'var(--tg-theme-bg-color)' }}>
         {[
           { label: 'Register Webhook', action: () => registerWebhook() },
           { label: 'Set Bot Commands', action: () => setBotCommands() },

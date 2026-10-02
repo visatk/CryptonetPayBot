@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
 import { haptic } from '../hooks/useTelegramTheme';
 import {
-  Wallet, FileText, Tv2, Store, Zap, Crown, ArrowRight,
+  Tv2, Zap, Crown, ArrowRight,
   TrendingUp, Shield, Clock, ChevronRight, Bell, RefreshCw,
 } from 'lucide-react';
 

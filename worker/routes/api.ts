@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod/v4';
 import type { HonoEnv } from '../index';
-import { sendTelegram } from '../index';
+
 import { eq, and, desc } from 'drizzle-orm';
 import * as schema from '../db/schema';
 import { createApirone } from '../lib/apirone';
@@ -21,7 +21,7 @@ apiRouter.use('/tma/*', async (c, next) => {
   const userId = verifyTelegramInitData(initData, c.env.BOT_TOKEN);
   if (!userId) return c.json({ error: 'Invalid initData' }, 401);
 
-  c.set('userId' as never, userId);
+  c.set('userId', userId);
   await next();
 });
 
@@ -36,13 +36,13 @@ apiRouter.use('/merchant/*', async (c, next) => {
   });
   if (!merchant) return c.json({ error: 'Invalid API key' }, 401);
 
-  c.set('merchant' as never, merchant);
+  c.set('merchant', merchant);
   await next();
 });
 
 // ─── TMA: User Profile ────────────────────────────────────────────────────────
 apiRouter.get('/tma/me', async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
 
   const user = await db.query.users.findFirst({
@@ -65,7 +65,7 @@ apiRouter.get('/tma/me', async (c) => {
 
 // ─── TMA: Create/Get Apirone Wallet ──────────────────────────────────────────
 apiRouter.post('/tma/wallet/create', async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
 
   const user = await db.query.users.findFirst({ where: eq(schema.users.id, userId) });
@@ -93,7 +93,7 @@ apiRouter.post('/tma/wallet/create', async (c) => {
 
 // ─── TMA: Get wallet balances ─────────────────────────────────────────────────
 apiRouter.get('/tma/wallet/balance', async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
 
   const user = await db.query.users.findFirst({ where: eq(schema.users.id, userId) });
@@ -124,7 +124,7 @@ apiRouter.post('/tma/invoice/create', zValidator('json', z.object({
   title: z.string().max(100),
   description: z.string().max(500).optional(),
 })), async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
   const { currency, amountUsd, title, description } = c.req.valid('json');
 
@@ -183,7 +183,7 @@ apiRouter.post('/tma/invoice/create', zValidator('json', z.object({
 
 // ─── TMA: My invoices ─────────────────────────────────────────────────────────
 apiRouter.get('/tma/invoices', async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
 
   const page = parseInt(c.req.query('page') || '1');
@@ -202,7 +202,7 @@ apiRouter.get('/tma/invoices', async (c) => {
 
 // ─── TMA: My channel subscriptions ───────────────────────────────────────────
 apiRouter.get('/tma/subscriptions', async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
 
   const subs = await db.query.channelSubscriptions.findMany({
@@ -232,7 +232,7 @@ apiRouter.post('/tma/merchant/create', zValidator('json', z.object({
   name: z.string().min(2).max(100),
   description: z.string().max(500).optional(),
 })), async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
   const { name, description } = c.req.valid('json');
 
@@ -259,7 +259,7 @@ apiRouter.post('/tma/merchant/create', zValidator('json', z.object({
 
 // ─── TMA: Get my merchants ────────────────────────────────────────────────────
 apiRouter.get('/tma/merchants', async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const db = c.get('db');
 
   const merchants = await db.query.merchants.findMany({
@@ -278,7 +278,7 @@ apiRouter.post('/tma/merchant/:merchantId/channel', zValidator('json', z.object(
   chatUsername: z.string().optional(),
   description: z.string().optional(),
 })), async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const merchantId = parseInt(c.req.param('merchantId'));
   const db = c.get('db');
   const body = c.req.valid('json');
@@ -304,7 +304,7 @@ apiRouter.post('/tma/channel/:productId/plan', zValidator('json', z.object({
   durationDays: z.number().int().positive(),
   maxUsers: z.number().int().optional(),
 })), async (c) => {
-  const userId = c.get('userId' as never) as number;
+  const userId = c.get('userId') as number;
   const productId = parseInt(c.req.param('productId'));
   const db = c.get('db');
   const body = c.req.valid('json');
@@ -334,7 +334,7 @@ apiRouter.post('/merchant/payment-link', zValidator('json', z.object({
   amountUsd: z.number().optional(),
   currency: z.string(),
 })), async (c) => {
-  const merchant = c.get('merchant' as never) as typeof schema.merchants.$inferSelect;
+  const merchant = c.get('merchant') as typeof schema.merchants.$inferSelect;
   const db = c.get('db');
   const body = c.req.valid('json');
 
@@ -360,7 +360,7 @@ apiRouter.post('/merchant/invoice', zValidator('json', z.object({
   userId: z.number().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })), async (c) => {
-  const merchant = c.get('merchant' as never) as typeof schema.merchants.$inferSelect;
+  const merchant = c.get('merchant') as typeof schema.merchants.$inferSelect;
   const db = c.get('db');
   const body = c.req.valid('json');
 
@@ -405,7 +405,7 @@ apiRouter.post('/merchant/invoice', zValidator('json', z.object({
 
 // ─── Merchant API: Get invoice status ─────────────────────────────────────────
 apiRouter.get('/merchant/invoice/:ref', async (c) => {
-  const merchant = c.get('merchant' as never) as typeof schema.merchants.$inferSelect;
+  const merchant = c.get('merchant') as typeof schema.merchants.$inferSelect;
   const db = c.get('db');
   const ref = c.req.param('ref');
 

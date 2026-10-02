@@ -131,3 +131,105 @@ export const botLogs = sqliteTable('bot_logs', {
   details: text('details'),
   createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`).notNull(),
 });
+import { relations } from 'drizzle-orm';
+
+export const usersRelations = relations(users, ({ many }) => ({
+  merchants: many(merchants),
+  invoices: many(invoices),
+  channelSubscriptions: many(channelSubscriptions),
+  transactions: many(transactions),
+}));
+
+export const merchantsRelations = relations(merchants, ({ one, many }) => ({
+  user: one(users, {
+    fields: [merchants.userId],
+    references: [users.id],
+  }),
+  channelProducts: many(channelProducts),
+  invoices: many(invoices),
+  paymentLinks: many(paymentLinks),
+}));
+
+export const channelProductsRelations = relations(channelProducts, ({ one, many }) => ({
+  merchant: one(merchants, {
+    fields: [channelProducts.merchantId],
+    references: [merchants.id],
+  }),
+  subscriptionPlans: many(subscriptionPlans),
+  invoices: many(invoices),
+  channelSubscriptions: many(channelSubscriptions),
+}));
+
+export const subscriptionPlansRelations = relations(subscriptionPlans, ({ one, many }) => ({
+  channelProduct: one(channelProducts, {
+    fields: [subscriptionPlans.channelProductId],
+    references: [channelProducts.id],
+  }),
+  invoices: many(invoices),
+  channelSubscriptions: many(channelSubscriptions),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  user: one(users, {
+    fields: [invoices.userId],
+    references: [users.id],
+  }),
+  merchant: one(merchants, {
+    fields: [invoices.merchantId],
+    references: [merchants.id],
+  }),
+  channelProduct: one(channelProducts, {
+    fields: [invoices.channelProductId],
+    references: [channelProducts.id],
+  }),
+  subscriptionPlan: one(subscriptionPlans, {
+    fields: [invoices.subscriptionPlanId],
+    references: [subscriptionPlans.id],
+  }),
+  channelSubscriptions: many(channelSubscriptions),
+  transactions: many(transactions),
+}));
+
+export const channelSubscriptionsRelations = relations(channelSubscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [channelSubscriptions.userId],
+    references: [users.id],
+  }),
+  channelProduct: one(channelProducts, {
+    fields: [channelSubscriptions.channelProductId],
+    references: [channelProducts.id],
+  }),
+  subscriptionPlan: one(subscriptionPlans, {
+    fields: [channelSubscriptions.subscriptionPlanId],
+    references: [subscriptionPlans.id],
+  }),
+  invoice: one(invoices, {
+    fields: [channelSubscriptions.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const paymentLinksRelations = relations(paymentLinks, ({ one }) => ({
+  merchant: one(merchants, {
+    fields: [paymentLinks.merchantId],
+    references: [merchants.id],
+  }),
+}));
+
+export const transactionsRelations = relations(transactions, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [transactions.invoiceId],
+    references: [invoices.id],
+  }),
+  user: one(users, {
+    fields: [transactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const botLogsRelations = relations(botLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [botLogs.userId],
+    references: [users.id],
+  }),
+}));

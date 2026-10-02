@@ -131,7 +131,7 @@ Invoice: <code>${ref}</code>
 
 Open your Mini App to view the full transaction history.`,
 
-  CHANNEL_ACCESS: (chatTitle: string, inviteLink: string, expiresAt: Date) => `\
+  CHANNEL_ACCESS: (chatTitle: string, _inviteLink: string, expiresAt: Date) => `\
 🎉 <b>Access Granted!</b>
 
 Welcome to <b>${chatTitle}</b>!

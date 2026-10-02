@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { HonoEnv } from '../index';
+import type { HonoEnv, Env } from '../index';
 import { sendTelegram } from '../index';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../db/schema';
@@ -54,7 +54,7 @@ interface TelegramUpdate {
 
 // ── DB type alias ─────────────────────────────────────────────────────────────
 type DB = ReturnType<typeof import('drizzle-orm/d1').drizzle<typeof schema>>;
-type Env = typeof import('../index').Env extends never ? never : typeof import('../index').Env;
+
 
 // ─── Webhook entry ────────────────────────────────────────────────────────────
 botRouter.post('/webhook', async (c) => {
@@ -174,10 +174,10 @@ async function handleCallbackQuery(cq: TelegramCallbackQuery, db: DB, env: Env) 
     if (!isNaN(productId)) await handleChannelProduct(userId, productId, db, env);
   } else if (data.startsWith('plan_')) {
     const [, productIdStr, planIdStr] = data.split('_');
-    await handleBuyChannelPlan(userId, parseInt(productIdStr), parseInt(planIdStr), db, env);
+    await handleBuyChannelPlan(userId, parseInt(productIdStr || '0'), parseInt(planIdStr || '0'), db, env);
   } else if (data.startsWith('paychan_')) {
     const [, currency, planIdStr] = data.split('_');
-    await handlePayChannel(userId, currency, parseInt(planIdStr), db, env);
+    await handlePayChannel(userId, currency || '', parseInt(planIdStr || '0'), db, env);
   } else if (data === 'noop') {
     // intentionally do nothing
   }
@@ -230,7 +230,7 @@ async function handleMyChatMember(
 // ─── chat_member (user joins/leaves) ─────────────────────────────────────────
 async function handleChatMember(
   event: { chat: { id: number | string }; new_chat_member: { status: string; user: TelegramUser } },
-  db: DB,
+  _db: DB,
   _env: Env
 ) {
   // Log when a user joins a subscribed channel
@@ -504,7 +504,7 @@ async function handleChannelProduct(userId: number, productId: number, db: DB, e
   );
 }
 
-async function handleBuyChannelPlan(userId: number, productId: number, planId: number, db: DB, env: Env) {
+async function handleBuyChannelPlan(userId: number, _productId: number, planId: number, db: DB, env: Env) {
   const plan = await db.query.subscriptionPlans.findFirst({
     where: and(eq(schema.subscriptionPlans.id, planId), eq(schema.subscriptionPlans.isActive, true)),
   });

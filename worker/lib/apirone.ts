@@ -56,7 +56,7 @@ export function createApirone(accountId: string, transferKey: string) {
     const res = await fetch(url, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      ...(body && { body: JSON.stringify(body) }),
     });
 
     if (!res.ok) {
@@ -128,7 +128,7 @@ export function createApirone(accountId: string, transferKey: string) {
     async getRate(currency: string, quote: string = 'usd'): Promise<ApironeRate> {
       const res = await fetch(`${APIRONE_BASE}/ticker?currency=${currency}&quote=${quote}`);
       const data = await res.json() as ApironeRate | ApironeRate[];
-      return Array.isArray(data) ? data[0] : data;
+      return (Array.isArray(data) ? data[0] : data) as ApironeRate;
     },
 
     /**

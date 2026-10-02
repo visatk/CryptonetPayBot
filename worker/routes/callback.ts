@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { HonoEnv } from '../index';
+import type { HonoEnv, Env } from '../index';
 import { sendTelegram } from '../index';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../db/schema';
@@ -117,7 +117,7 @@ async function handleInvoiceCallback(
   body: ApironeCallback & { invoice?: ApironeInvoiceStatus },
   invoice: typeof schema.invoices.$inferSelect,
   db: ReturnType<typeof import('drizzle-orm/d1').drizzle<typeof schema>>,
-  env: typeof import('../index').Env extends never ? never : typeof import('../index').Env
+  env: Env
 ) {
   const newStatus = body.invoice?.status;
   if (!newStatus) return;
@@ -153,7 +153,7 @@ async function handleInvoiceCallback(
 async function activateChannelSubscription(
   invoice: typeof schema.invoices.$inferSelect,
   db: ReturnType<typeof import('drizzle-orm/d1').drizzle<typeof schema>>,
-  env: typeof import('../index').Env extends never ? never : typeof import('../index').Env
+  env: Env
 ) {
   if (!invoice.channelProductId || !invoice.subscriptionPlanId) return;
 
