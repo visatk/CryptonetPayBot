@@ -4,7 +4,7 @@ import type { HonoEnv } from '../index';
 export const webhookRouter = new Hono<HonoEnv>();
 
 // Register Telegram webhook
-webhookRouter.post('/register', async (c) => {
+webhookRouter.all('/register', async (c) => {
   const token = c.env.BOT_TOKEN;
   const secret = c.env.WEBHOOK_SECRET;
   const url = c.env.MINIAPP_URL;
@@ -40,7 +40,7 @@ webhookRouter.delete('/register', async (c) => {
 });
 
 // Set bot commands
-webhookRouter.post('/commands', async (c) => {
+webhookRouter.all('/commands', async (c) => {
   const token = c.env.BOT_TOKEN;
   const res = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
     method: 'POST',
