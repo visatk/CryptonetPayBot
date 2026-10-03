@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { RefreshCw, ExternalLink, Plus } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useTelegramBackButton, haptic } from '../hooks/useTelegramTheme';
+import CryptoIcon, { getCryptoBg } from '../components/CryptoIcon';
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const STATUS: Record<string, { label: string; color: string; bg: string; dot: string }> = {
@@ -14,12 +15,6 @@ const STATUS: Record<string, { label: string; color: string; bg: string; dot: st
   completed: { label: 'Completed', color: '#059669', bg: 'rgba(5,150,105,0.1)',   dot: '#10b981' },
   expired:   { label: 'Expired',   color: '#dc2626', bg: 'rgba(220,38,38,0.1)',   dot: '#ef4444' },
   failed:    { label: 'Failed',    color: '#dc2626', bg: 'rgba(220,38,38,0.1)',   dot: '#ef4444' },
-};
-
-const CURRENCY_ICONS: Record<string, string> = {
-  btc: '₿', eth: 'Ξ', ltc: 'Ł', trx: '⚡', bnb: '🟡',
-  doge: '🐕', gram: '💎', 'usdt@trx': '💵', 'usdt@eth': '💵',
-  'usdt@bnb': '💵', 'usdt@ton': '💵', 'usdc@trx': '💵',
 };
 
 interface Invoice {
@@ -42,27 +37,17 @@ function formatDate(ts: string) {
 }
 
 function InvoiceCard({ inv }: { inv: Invoice }) {
-  const sc = STATUS[inv.status] ?? STATUS.pending;
-  const icon = CURRENCY_ICONS[inv.currency] ?? '🪙';
+  const sc    = STATUS[inv.status] ?? STATUS.pending;
+  const color = getCryptoBg(inv.currency);
 
   return (
     <div
-      style={{
-        background: 'var(--tg-theme-bg-color)',
-        borderRadius: 16, padding: '14px 16px',
-      }}
+      style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 16, padding: '14px 16px' }}
       className="animate-fade-up"
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 10,
-            background: 'var(--tg-theme-secondary-bg-color)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 17,
-          }}>
-            {icon}
-          </div>
+          <CryptoIcon currency={inv.currency} size={38} />
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, margin: 0, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {inv.invoiceRef}
@@ -74,12 +59,9 @@ function InvoiceCard({ inv }: { inv: Invoice }) {
         </div>
         <span
           className="badge"
-          style={{ background: sc.bg, color: sc.color }}
+          style={{ background: sc.bg, color: sc.color, flexShrink: 0 }}
         >
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: sc.dot, display: 'inline-block',
-          }} />
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc.dot, display: 'inline-block' }} />
           {sc.label}
         </span>
       </div>
@@ -87,9 +69,9 @@ function InvoiceCard({ inv }: { inv: Invoice }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <p style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>
-            \${inv.amountUsd.toFixed(2)}
+            ${inv.amountUsd.toFixed(2)}
           </p>
-          <p style={{ fontSize: 11, color: 'var(--tg-theme-hint-color)', margin: '2px 0 0' }}>
+          <p style={{ fontSize: 11, color, margin: '2px 0 0', fontWeight: 600 }}>
             {inv.amountCrypto} {inv.currency.toUpperCase()}
           </p>
         </div>
@@ -181,8 +163,7 @@ export default function InvoicePage() {
             }}
           >
             <RefreshCw
-              size={16}
-              color="var(--tg-theme-hint-color)"
+              size={16} color="var(--tg-theme-hint-color)"
               style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }}
             />
           </button>
@@ -195,11 +176,20 @@ export default function InvoicePage() {
           {[1, 2, 3, 4].map(i => <div key={i} className="shimmer" style={{ height: 96 }} />)}
         </div>
       ) : invoices.length === 0 ? (
-        <div style={{
-          background: 'var(--tg-theme-bg-color)', borderRadius: 18,
-          padding: '48px 24px', textAlign: 'center',
-        }}>
-          <p style={{ fontSize: 42, margin: '0 0 12px' }}>🧾</p>
+        <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 18, padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 20,
+            background: 'rgba(16,185,129,0.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+          }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.7">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </div>
           <p style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px' }}>No invoices yet</p>
           <p style={{ fontSize: 13, color: 'var(--tg-theme-hint-color)', margin: '0 0 20px', lineHeight: 1.5 }}>
             Create your first invoice to start accepting crypto payments
@@ -214,7 +204,7 @@ export default function InvoicePage() {
               fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer',
             }}
           >
-            + Create Invoice
+            Create Invoice
           </button>
         </div>
       ) : (

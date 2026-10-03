@@ -9,6 +9,7 @@ import { createApirone } from '../lib/apirone';
 import { verifyTelegramInitData } from '../lib/telegram';
 import { generateApiKey, nanoid, generateInvoiceRef } from '../lib/utils';
 import { SUPPORTED_CURRENCIES, PLAN_LIMITS } from '../lib/constants';
+import { sendTelegram } from '../index';
 
 export const apiRouter = new Hono<HonoEnv>();
 
@@ -45,9 +46,34 @@ apiRouter.get('/tma/me', async (c) => {
   const userId = c.get('userId') as number;
   const db = c.get('db');
 
-  const user = await db.query.users.findFirst({
+  let user = await db.query.users.findFirst({
     where: eq(schema.users.id, userId),
   });
+
+  // Auto-create user from initData if not exists
+  if (!user) {
+    const initData = c.req.header('X-Telegram-InitData') || '';
+    try {
+      const params = new URLSearchParams(initData);
+      const userStr = params.get('user');
+      if (userStr) {
+        const tgUser = JSON.parse(userStr) as {
+          id: number; first_name: string; last_name?: string;
+          username?: string; language_code?: string;
+        };
+        await db.insert(schema.users).values({
+          id: tgUser.id,
+          firstName: tgUser.first_name,
+          lastName: tgUser.last_name,
+          username: tgUser.username,
+          languageCode: tgUser.language_code ?? 'en',
+          plan: 'free',
+          txCount: 0,
+        }).onConflictDoNothing();
+        user = await db.query.users.findFirst({ where: eq(schema.users.id, userId) });
+      }
+    } catch { /* ignore */ }
+  }
 
   if (!user) return c.json({ error: 'User not found' }, 404);
 
@@ -77,8 +103,8 @@ apiRouter.post('/tma/wallet/create', async (c) => {
 
   // Create Apirone account for user
   const res = await fetch('https://apirone.com/api/v2/accounts', { method: 'POST' });
+  if (!res.ok) return c.json({ error: 'Failed to create wallet' }, 500);
   const account = await res.json() as { account: string; 'transfer-key': string };
-
   if (!account.account) return c.json({ error: 'Failed to create wallet' }, 500);
 
   await db.update(schema.users)
@@ -134,7 +160,7 @@ apiRouter.post('/tma/invoice/create', zValidator('json', z.object({
   // Check plan limits
   const limit = PLAN_LIMITS[user.plan];
   if (limit.maxTx !== -1 && user.txCount >= limit.maxTx) {
-    return c.json({ error: `Transaction limit reached. Upgrade to Pro for unlimited transactions.` }, 403);
+    return c.json({ error: 'Transaction limit reached. Upgrade to Pro for unlimited transactions.' }, 403);
   }
 
   if (!user.apironeAccountId) return c.json({ error: 'Create a wallet first' }, 400);
@@ -143,13 +169,15 @@ apiRouter.post('/tma/invoice/create', zValidator('json', z.object({
   const rate = await apirone.getRate(currency, 'usd');
   const amountCrypto = (amountUsd / rate.price).toFixed(8);
   const ref = generateInvoiceRef();
+  const callbackUrl = `${c.env.MINIAPP_URL}/callback/payment?ref=${ref}&secret=${c.env.WEBHOOK_SECRET}`;
 
   const invoice = await apirone.createInvoice({
     currency,
     amount: amountCrypto,
     lifetime: 3600,
-    callbackUrl: `${c.env.MINIAPP_URL}/callback/payment?ref=${ref}&secret=${c.env.WEBHOOK_SECRET}`,
+    callbackUrl,
     userData: { title, description: description || '' },
+    linkback: `${c.env.MINIAPP_URL}/invoices`,
   });
 
   await db.insert(schema.invoices).values({
@@ -161,6 +189,7 @@ apiRouter.post('/tma/invoice/create', zValidator('json', z.object({
     amountCrypto: String(invoice.amount),
     amountUsd,
     status: 'created',
+    callbackUrl,
     paymentAddress: invoice.address,
     apironeInvoiceUrl: invoice['invoice-url'],
     expiresAt: new Date(invoice.expire),
@@ -227,6 +256,100 @@ apiRouter.get('/tma/channels', async (c) => {
   return c.json({ products });
 });
 
+// ─── TMA: Get single channel product ─────────────────────────────────────────
+apiRouter.get('/tma/channels/:productId', async (c) => {
+  const db = c.get('db');
+  const productId = parseInt(c.req.param('productId'));
+  if (isNaN(productId)) return c.json({ error: 'Invalid product ID' }, 400);
+
+  const product = await db.query.channelProducts.findFirst({
+    where: and(eq(schema.channelProducts.id, productId), eq(schema.channelProducts.isActive, true)),
+    with: {
+      subscriptionPlans: { where: eq(schema.subscriptionPlans.isActive, true) },
+      merchant: true,
+    },
+  });
+  if (!product) return c.json({ error: 'Not found' }, 404);
+  return c.json({ product });
+});
+
+// ─── TMA: Pay for channel subscription ───────────────────────────────────────
+apiRouter.post('/tma/channel/:productId/pay', zValidator('json', z.object({
+  planId: z.number().int().positive(),
+  currency: z.string(),
+})), async (c) => {
+  const userId = c.get('userId') as number;
+  const productId = parseInt(c.req.param('productId'));
+  const db = c.get('db');
+  const { planId, currency } = c.req.valid('json');
+
+  if (isNaN(productId)) return c.json({ error: 'Invalid product ID' }, 400);
+
+  // Validate plan belongs to product
+  const plan = await db.query.subscriptionPlans.findFirst({
+    where: and(
+      eq(schema.subscriptionPlans.id, planId),
+      eq(schema.subscriptionPlans.channelProductId, productId),
+      eq(schema.subscriptionPlans.isActive, true),
+    ),
+    with: { channelProduct: { with: { merchant: true } } },
+  });
+  if (!plan) return c.json({ error: 'Plan not found' }, 404);
+
+  // Drizzle returns typed nested relations directly
+  const channelProduct = plan.channelProduct as typeof schema.channelProducts.$inferSelect & {
+    merchant: typeof schema.merchants.$inferSelect;
+  };
+  const merchant = channelProduct.merchant;
+  const apirone = createApirone(merchant.apironeAccountId, merchant.apironeTransferKey);
+
+  const rate = await apirone.getRate(currency, 'usd');
+  const amountCrypto = (plan.priceUsd / rate.price).toFixed(8);
+  const ref = generateInvoiceRef();
+  const callbackUrl = `${c.env.MINIAPP_URL}/callback/channel?ref=${ref}&secret=${c.env.WEBHOOK_SECRET}`;
+
+  const invoice = await apirone.createInvoice({
+    currency,
+    amount: amountCrypto,
+    lifetime: 3600,
+    callbackUrl,
+    userData: {
+      title: `Subscription: ${plan.channelProduct.chatTitle}`,
+      plan: plan.name,
+      merchant: merchant.name,
+    },
+    linkback: `${c.env.MINIAPP_URL}/channels`,
+  });
+
+  await db.insert(schema.invoices).values({
+    invoiceRef: ref,
+    apironeInvoiceId: invoice.invoice,
+    userId,
+    merchantId: plan.channelProduct.merchantId,
+    channelProductId: productId,
+    subscriptionPlanId: planId,
+    type: 'channel_sub',
+    currency,
+    amountCrypto: String(invoice.amount),
+    amountUsd: plan.priceUsd,
+    status: 'created',
+    callbackUrl,
+    paymentAddress: invoice.address,
+    apironeInvoiceUrl: invoice['invoice-url'],
+    expiresAt: new Date(invoice.expire),
+  });
+
+  return c.json({
+    ref,
+    invoiceUrl: invoice['invoice-url'],
+    address: invoice.address,
+    amountCrypto,
+    currency,
+    amountUsd: plan.priceUsd,
+    expires: invoice.expire,
+  });
+});
+
 // ─── TMA: Create Merchant ─────────────────────────────────────────────────────
 apiRouter.post('/tma/merchant/create', zValidator('json', z.object({
   name: z.string().min(2).max(100),
@@ -238,6 +361,7 @@ apiRouter.post('/tma/merchant/create', zValidator('json', z.object({
 
   // Create Apirone account for merchant
   const res = await fetch('https://apirone.com/api/v2/accounts', { method: 'POST' });
+  if (!res.ok) return c.json({ error: 'Failed to create merchant wallet' }, 500);
   const account = await res.json() as { account: string; 'transfer-key': string };
 
   const apiKey = generateApiKey();
@@ -264,7 +388,7 @@ apiRouter.get('/tma/merchants', async (c) => {
 
   const merchants = await db.query.merchants.findMany({
     where: eq(schema.merchants.userId, userId),
-    with: { channelProducts: true },
+    with: { channelProducts: { with: { subscriptionPlans: true } } },
   });
 
   return c.json({ merchants });
@@ -297,6 +421,32 @@ apiRouter.post('/tma/merchant/:merchantId/channel', zValidator('json', z.object(
   return c.json({ product });
 });
 
+// ─── TMA: Update channel product ─────────────────────────────────────────────
+apiRouter.put('/tma/channel/:productId', zValidator('json', z.object({
+  chatTitle: z.string().optional(),
+  description: z.string().optional(),
+  isActive: z.boolean().optional(),
+})), async (c) => {
+  const userId = c.get('userId') as number;
+  const productId = parseInt(c.req.param('productId'));
+  const db = c.get('db');
+  const body = c.req.valid('json');
+
+  const product = await db.query.channelProducts.findFirst({
+    where: eq(schema.channelProducts.id, productId),
+    with: { merchant: true },
+  });
+  if (!product || (product.merchant as unknown as { userId: number }).userId !== userId) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  await db.update(schema.channelProducts)
+    .set(body)
+    .where(eq(schema.channelProducts.id, productId));
+
+  return c.json({ success: true });
+});
+
 // ─── TMA: Add subscription plan ───────────────────────────────────────────────
 apiRouter.post('/tma/channel/:productId/plan', zValidator('json', z.object({
   name: z.string(),
@@ -327,6 +477,103 @@ apiRouter.post('/tma/channel/:productId/plan', zValidator('json', z.object({
   return c.json({ plan });
 });
 
+// ─── TMA: Delete subscription plan ──────────────────────────────────────────
+apiRouter.delete('/tma/plan/:planId', async (c) => {
+  const userId = c.get('userId') as number;
+  const planId = parseInt(c.req.param('planId'));
+  const db = c.get('db');
+
+  const plan = await db.query.subscriptionPlans.findFirst({
+    where: eq(schema.subscriptionPlans.id, planId),
+    with: { channelProduct: { with: { merchant: true } } },
+  });
+  if (!plan || (plan.channelProduct.merchant as unknown as { userId: number }).userId !== userId) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  await db.update(schema.subscriptionPlans)
+    .set({ isActive: false })
+    .where(eq(schema.subscriptionPlans.id, planId));
+
+  return c.json({ success: true });
+});
+
+// ─── TMA: Get channel subscribers (merchant view) ────────────────────────────
+apiRouter.get('/tma/channel/:productId/subscribers', async (c) => {
+  const userId = c.get('userId') as number;
+  const productId = parseInt(c.req.param('productId'));
+  const db = c.get('db');
+
+  const product = await db.query.channelProducts.findFirst({
+    where: eq(schema.channelProducts.id, productId),
+    with: { merchant: true },
+  });
+  if (!product || (product.merchant as unknown as { userId: number }).userId !== userId) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  const subs = await db.query.channelSubscriptions.findMany({
+    where: eq(schema.channelSubscriptions.channelProductId, productId),
+    with: { user: true, subscriptionPlan: true },
+    orderBy: [desc(schema.channelSubscriptions.createdAt)],
+  });
+
+  return c.json({ subscribers: subs });
+});
+
+// ─── TMA: Revoke subscription (merchant) ────────────────────────────────────
+apiRouter.post('/tma/subscription/:subId/revoke', async (c) => {
+  const userId = c.get('userId') as number;
+  const subId = parseInt(c.req.param('subId'));
+  const db = c.get('db');
+
+  const sub = await db.query.channelSubscriptions.findFirst({
+    where: eq(schema.channelSubscriptions.id, subId),
+    with: { channelProduct: { with: { merchant: true } } },
+  });
+
+  if (!sub || (sub.channelProduct.merchant as unknown as { userId: number }).userId !== userId) {
+    return c.json({ error: 'Not authorized' }, 403);
+  }
+
+  await db.update(schema.channelSubscriptions)
+    .set({ status: 'revoked' })
+    .where(eq(schema.channelSubscriptions.id, subId));
+
+  // Kick from channel
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    await sendTelegram(c.env.BOT_TOKEN, 'banChatMember', {
+      chat_id: sub.channelProduct.telegramChatId,
+      user_id: sub.userId,
+      until_date: now + 35,
+    });
+  } catch { /* ignore if already left */ }
+
+  return c.json({ success: true });
+});
+
+// ─── TMA: Share channel deep link ─────────────────────────────────────────────
+apiRouter.get('/tma/channel/:productId/share', async (c) => {
+  const productId = parseInt(c.req.param('productId'));
+  const db = c.get('db');
+
+  const product = await db.query.channelProducts.findFirst({
+    where: and(eq(schema.channelProducts.id, productId), eq(schema.channelProducts.isActive, true)),
+  });
+  if (!product) return c.json({ error: 'Not found' }, 404);
+
+  // Get bot username from Telegram
+  try {
+    const me = await sendTelegram(c.env.BOT_TOKEN, 'getMe', {}) as { username?: string };
+    const botUsername = me.username ?? '';
+    const deepLink = `https://t.me/${botUsername}?start=channel_${productId}`;
+    return c.json({ deepLink, productId });
+  } catch {
+    return c.json({ error: 'Failed to get bot info' }, 500);
+  }
+});
+
 // ─── Merchant API: Create payment link ────────────────────────────────────────
 apiRouter.post('/merchant/payment-link', zValidator('json', z.object({
   title: z.string(),
@@ -346,10 +593,17 @@ apiRouter.post('/merchant/payment-link', zValidator('json', z.object({
     isActive: true,
   }).returning();
 
+  // Get bot username dynamically
+  let botUsername = '';
+  try {
+    const me = await sendTelegram(c.env.BOT_TOKEN, 'getMe', {}) as { username?: string };
+    botUsername = me.username ?? '';
+  } catch { /* ignore */ }
+
   return c.json({
     link,
     url: `${c.env.MINIAPP_URL}/pay/${slug}`,
-    botUrl: `https://t.me/${c.env.BOT_TOKEN.split(':')[0]}bot?start=pay_${slug}`,
+    botUrl: botUsername ? `https://t.me/${botUsername}?start=pay_${slug}` : null,
   });
 });
 

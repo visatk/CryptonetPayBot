@@ -4,29 +4,30 @@ import { toast } from 'sonner';
 import { Copy, ExternalLink, Check, RefreshCw, AlertCircle, Clock } from 'lucide-react';
 import { useApi } from '../context/ApiContext';
 import { useTelegramBackButton, useTelegramMainButton, haptic } from '../hooks/useTelegramTheme';
+import CryptoIcon, { getCryptoBg } from '../components/CryptoIcon';
 
 // ── Currency list ─────────────────────────────────────────────────────────────
 const CURRENCIES = [
-  { id: 'btc',       label: 'Bitcoin',       icon: '₿',  color: '#f7931a' },
-  { id: 'usdt@trx',  label: 'USDT TRC-20',   icon: '💵', color: '#26a17b' },
-  { id: 'usdt@ton',  label: 'USDT TON',      icon: '💵', color: '#26a17b' },
-  { id: 'usdt@eth',  label: 'USDT ERC-20',   icon: '💵', color: '#26a17b' },
-  { id: 'eth',       label: 'Ethereum',       icon: 'Ξ',  color: '#627eea' },
-  { id: 'gram',      label: 'TON',            icon: '💎', color: '#0088cc' },
-  { id: 'trx',       label: 'TRON',           icon: '⚡', color: '#ef0027' },
-  { id: 'ltc',       label: 'Litecoin',       icon: 'Ł',  color: '#bfbbbb' },
-  { id: 'bnb',       label: 'BNB',            icon: '🟡', color: '#f3ba2f' },
-  { id: 'doge',      label: 'Dogecoin',       icon: '🐕', color: '#c2a633' },
+  { id: 'usdt@trx', label: 'USDT TRC-20' },
+  { id: 'usdt@ton', label: 'USDT TON'    },
+  { id: 'usdt@eth', label: 'USDT ERC-20' },
+  { id: 'gram',     label: 'TON'          },
+  { id: 'btc',      label: 'Bitcoin'      },
+  { id: 'eth',      label: 'Ethereum'     },
+  { id: 'trx',      label: 'TRON'         },
+  { id: 'ltc',      label: 'Litecoin'     },
+  { id: 'bnb',      label: 'BNB'          },
+  { id: 'doge',     label: 'Dogecoin'     },
 ];
 
 interface InvoiceResult {
-  ref:         string;
-  address:     string;
-  invoiceUrl:  string;
+  ref:          string;
+  address:      string;
+  invoiceUrl:   string;
   amountCrypto: string;
-  currency:    string;
-  amountUsd:   number;
-  expires:     string;
+  currency:     string;
+  amountUsd:    number;
+  expires:      string;
 }
 
 // ── Countdown hook ────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ function useCountdown(expiresIso: string | null) {
 function ResultView({ result, onReset }: { result: InvoiceResult; onReset: () => void }) {
   const [copied, setCopied] = useState(false);
   const countdown = useCountdown(result.expires);
+  const color = getCryptoBg(result.currency);
 
   async function copyAddress() {
     await navigator.clipboard.writeText(result.address);
@@ -57,8 +59,6 @@ function ResultView({ result, onReset }: { result: InvoiceResult; onReset: () =>
     setTimeout(() => setCopied(false), 2500);
   }
 
-  const currMeta = CURRENCIES.find(c => c.id === result.currency);
-
   return (
     <div style={{ padding: 16, minHeight: '100%', background: 'var(--tg-theme-secondary-bg-color)' }}>
       {/* Success header */}
@@ -67,13 +67,15 @@ function ResultView({ result, onReset }: { result: InvoiceResult; onReset: () =>
           width: 68, height: 68, borderRadius: '50%',
           background: 'rgba(34,197,94,0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 14px', fontSize: 32,
+          margin: '0 auto 14px',
         }}>
-          ✅
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
         </div>
         <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>Invoice Created!</h1>
         <p style={{ fontSize: 14, color: 'var(--tg-theme-hint-color)', margin: 0 }}>
-          Share your address or send the invoice link
+          Share your address or open the invoice page
         </p>
       </div>
 
@@ -81,15 +83,18 @@ function ResultView({ result, onReset }: { result: InvoiceResult; onReset: () =>
       <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 18, overflow: 'hidden', marginBottom: 12 }}>
         {/* Amount */}
         <div style={{ padding: '16px 16px 14px', borderBottom: '1px solid var(--tg-theme-section-separator-color)' }}>
-          <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '0 0 4px' }}>Amount</p>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <p style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>
-              {currMeta?.icon} {result.amountCrypto}
-            </p>
+          <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '0 0 8px' }}>Amount</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CryptoIcon currency={result.currency} size={40} />
+            <div>
+              <p style={{ fontSize: 22, fontWeight: 800, margin: 0, color }}>
+                {result.amountCrypto}
+              </p>
+              <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '2px 0 0' }}>
+                {result.currency.toUpperCase()} ≈ ${result.amountUsd.toFixed(2)}
+              </p>
+            </div>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--tg-theme-hint-color)', margin: '3px 0 0' }}>
-            {result.currency.toUpperCase()} ≈ \${result.amountUsd.toFixed(2)}
-          </p>
         </div>
 
         {/* Address */}
@@ -217,10 +222,11 @@ export default function CreateInvoicePage() {
     }
   }
 
-  // Use Telegram MainButton for create action
   useTelegramMainButton('Create Invoice', handleCreate, { enabled: isValid, loading });
 
   if (result) return <ResultView result={result} onReset={() => setResult(null)} />;
+
+  const color = getCryptoBg(currency);
 
   // ── Form ──────────────────────────────────────────────────────────────────
   return (
@@ -251,7 +257,7 @@ export default function CreateInvoicePage() {
         }}>
           <AlertCircle size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: 1 }} />
           <p style={{ fontSize: 13, color: '#991b1b', margin: 0 }}>
-            Free plan limit reached. Upgrade to Pro for unlimited invoices.
+            Free plan limit reached (10 tx). Upgrade to Pro for unlimited invoices.
           </p>
         </div>
       )}
@@ -283,15 +289,17 @@ export default function CreateInvoicePage() {
               placeholder="0.00"
               value={amountUsd}
               onChange={e => setAmount(e.target.value)}
-              min="0.01"
-              step="0.01"
+              min="0.01" step="0.01"
               style={{ flex: 1, fontSize: 22, fontWeight: 700 }}
             />
           </div>
           {cryptoPrev && (
-            <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '6px 0 0' }}>
-              ≈ {cryptoPrev} {currency.toUpperCase()}
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+              <CryptoIcon currency={currency} size={16} bg={false} />
+              <p style={{ fontSize: 12, color, margin: 0, fontWeight: 600 }}>
+                ≈ {cryptoPrev} {currency.toUpperCase()}
+              </p>
+            </div>
           )}
         </div>
 
@@ -303,6 +311,7 @@ export default function CreateInvoicePage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             {CURRENCIES.map(c => {
               const active = currency === c.id;
+              const cColor = getCryptoBg(c.id);
               return (
                 <button
                   key={c.id}
@@ -310,16 +319,17 @@ export default function CreateInvoicePage() {
                   className="pressable"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
-                    padding: '7px 11px', borderRadius: 10,
+                    padding: '6px 10px', borderRadius: 10,
                     fontSize: 12, fontWeight: 600,
-                    border: active ? `1.5px solid ${c.color}` : '1.5px solid transparent',
-                    background: active ? `${c.color}15` : 'var(--tg-theme-secondary-bg-color)',
-                    color: active ? c.color : 'var(--tg-theme-text-color)',
+                    border: active ? `1.5px solid ${cColor}` : '1.5px solid transparent',
+                    background: active ? `${cColor}12` : 'var(--tg-theme-secondary-bg-color)',
+                    color: active ? cColor : 'var(--tg-theme-text-color)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <span>{c.icon}</span> {c.label}
+                  <CryptoIcon currency={c.id} size={18} bg={false} />
+                  {c.label}
                 </button>
               );
             })}
@@ -336,14 +346,11 @@ export default function CreateInvoicePage() {
             value={description}
             onChange={e => setDesc(e.target.value)}
             rows={2}
-            style={{
-              width: '100%', marginTop: 6, fontSize: 14,
-              resize: 'none', lineHeight: 1.5,
-            }}
+            style={{ width: '100%', marginTop: 6, fontSize: 14, resize: 'none', lineHeight: 1.5 }}
           />
         </div>
 
-        {/* Submit — also powered by Telegram MainButton */}
+        {/* Submit */}
         <button
           onClick={handleCreate}
           disabled={loading || !isValid}
@@ -360,7 +367,8 @@ export default function CreateInvoicePage() {
         >
           {loading
             ? <><RefreshCw size={17} className="animate-spin-slow" /> Creating…</>
-            : '✓ Create Invoice'}
+            : <><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg> Create Invoice</>
+          }
         </button>
       </div>
     </div>

@@ -4,22 +4,22 @@ import { toast } from 'sonner';
 import { useApi } from '../context/ApiContext';
 import { useTelegramBackButton, haptic } from '../hooks/useTelegramTheme';
 import { useNavigate } from 'react-router-dom';
+import CryptoIcon, { getCryptoBg } from '../components/CryptoIcon';
 
-// ── Currency meta ─────────────────────────────────────────────────────────────
-const CURRENCY_META: Record<string, { label: string; icon: string; color: string }> = {
-  btc:         { label: 'Bitcoin',       icon: '₿',  color: '#f7931a' },
-  eth:         { label: 'Ethereum',      icon: 'Ξ',  color: '#627eea' },
-  ltc:         { label: 'Litecoin',      icon: 'Ł',  color: '#bfbbbb' },
-  trx:         { label: 'TRON',          icon: '⚡', color: '#ef0027' },
-  bnb:         { label: 'BNB',           icon: '🟡', color: '#f3ba2f' },
-  doge:        { label: 'Dogecoin',      icon: '🐕', color: '#c2a633' },
-  gram:        { label: 'TON',           icon: '💎', color: '#0088cc' },
-  'usdt@trx':  { label: 'USDT (TRC-20)',icon: '💵', color: '#26a17b' },
-  'usdc@trx':  { label: 'USDC (TRC-20)',icon: '💵', color: '#2775ca' },
-  'usdt@eth':  { label: 'USDT (ERC-20)',icon: '💵', color: '#26a17b' },
-  'usdc@eth':  { label: 'USDC (ERC-20)',icon: '💵', color: '#2775ca' },
-  'usdt@bnb':  { label: 'USDT (BEP-20)',icon: '💵', color: '#26a17b' },
-  'usdt@ton':  { label: 'USDT (TON)',    icon: '💵', color: '#26a17b' },
+const CURRENCY_META: Record<string, { label: string; ticker: string }> = {
+  btc:         { label: 'Bitcoin',       ticker: 'BTC'      },
+  eth:         { label: 'Ethereum',      ticker: 'ETH'      },
+  ltc:         { label: 'Litecoin',      ticker: 'LTC'      },
+  trx:         { label: 'TRON',          ticker: 'TRX'      },
+  bnb:         { label: 'BNB',           ticker: 'BNB'      },
+  doge:        { label: 'Dogecoin',      ticker: 'DOGE'     },
+  gram:        { label: 'TON',           ticker: 'TON'      },
+  'usdt@trx':  { label: 'USDT TRC-20',  ticker: 'USDT'     },
+  'usdc@trx':  { label: 'USDC TRC-20',  ticker: 'USDC'     },
+  'usdt@eth':  { label: 'USDT ERC-20',  ticker: 'USDT'     },
+  'usdc@eth':  { label: 'USDC ERC-20',  ticker: 'USDC'     },
+  'usdt@bnb':  { label: 'USDT BEP-20',  ticker: 'USDT'     },
+  'usdt@ton':  { label: 'USDT TON',     ticker: 'USDT'     },
 };
 
 interface Balance { currency: string; balance: number; address: string; }
@@ -28,41 +28,34 @@ interface Balance { currency: string; balance: number; address: string; }
 function BalanceCard({
   bal, onCopy, copied,
 }: { bal: Balance; onCopy: (a: string) => void; copied: boolean }) {
-  const meta = CURRENCY_META[bal.currency] ?? { label: bal.currency.toUpperCase(), icon: '🪙', color: '#999' };
+  const meta = CURRENCY_META[bal.currency] ?? { label: bal.currency.toUpperCase(), ticker: bal.currency.toUpperCase() };
   const hasBal = bal.balance > 0;
+  const color = getCryptoBg(bal.currency);
 
   return (
     <div
-      style={{
-        background: 'var(--tg-theme-bg-color)',
-        borderRadius: 16,
-        padding: '14px 16px',
-      }}
+      style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 16, padding: '14px 16px' }}
       className="animate-fade-up"
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 12,
-            background: `${meta.color}15`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20,
-          }}>
-            {meta.icon}
-          </div>
+          <CryptoIcon currency={bal.currency} size={44} />
           <div>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>{meta.label}</p>
             <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '2px 0 0' }}>
-              {bal.currency.toUpperCase()}
+              {meta.ticker}
             </p>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <p style={{
             fontSize: 15, fontWeight: 700, margin: 0,
-            color: hasBal ? 'var(--tg-theme-text-color)' : 'var(--tg-theme-hint-color)',
+            color: hasBal ? color : 'var(--tg-theme-hint-color)',
           }}>
             {hasBal ? bal.balance.toFixed(6) : '0.000000'}
+          </p>
+          <p style={{ fontSize: 11, color: 'var(--tg-theme-hint-color)', margin: '2px 0 0' }}>
+            {meta.ticker}
           </p>
         </div>
       </div>
@@ -86,7 +79,7 @@ function BalanceCard({
           }
           <span style={{
             fontSize: 11, fontFamily: 'monospace',
-            color: 'var(--tg-theme-hint-color)',
+            color: copied ? '#22c55e' : 'var(--tg-theme-hint-color)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
             textAlign: 'left',
           }}>
@@ -102,9 +95,9 @@ function BalanceCard({
 export default function WalletPage() {
   const { user, apiFetch, fetchUser } = useApi();
   const navigate = useNavigate();
-  const [balances, setBalances]   = useState<Balance[]>([]);
-  const [loading, setLoading]     = useState(false);
-  const [creating, setCreating]   = useState(false);
+  const [balances, setBalances]     = useState<Balance[]>([]);
+  const [loading, setLoading]       = useState(false);
+  const [creating, setCreating]     = useState(false);
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null);
 
   useTelegramBackButton(() => navigate('/'));
@@ -172,9 +165,7 @@ export default function WalletPage() {
         <div
           style={{
             background: 'var(--tg-theme-bg-color)',
-            borderRadius: 20,
-            padding: '40px 24px',
-            textAlign: 'center',
+            borderRadius: 20, padding: '40px 24px', textAlign: 'center',
           }}
           className="animate-scale-in"
         >
@@ -187,9 +178,17 @@ export default function WalletPage() {
             <WalletIcon size={32} color="var(--tg-theme-button-color)" strokeWidth={1.5} />
           </div>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 8px' }}>No Wallet Yet</h2>
-          <p style={{ fontSize: 14, color: 'var(--tg-theme-hint-color)', margin: '0 0 24px', lineHeight: 1.5 }}>
-            Your Apirone crypto wallet will be created instantly. Start receiving BTC, ETH, USDT and more.
+          <p style={{ fontSize: 14, color: 'var(--tg-theme-hint-color)', margin: '0 0 8px', lineHeight: 1.5 }}>
+            Your Apirone crypto wallet will be created instantly.
           </p>
+
+          {/* Mini crypto icons preview */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, margin: '12px 0 20px' }}>
+            {['btc', 'eth', 'usdt@trx', 'gram', 'trx'].map(c => (
+              <CryptoIcon key={c} currency={c} size={32} />
+            ))}
+          </div>
+
           <button
             onClick={createWallet}
             disabled={creating}
@@ -233,9 +232,7 @@ export default function WalletPage() {
           }}
         >
           <RefreshCw
-            size={17}
-            strokeWidth={2}
-            color="var(--tg-theme-hint-color)"
+            size={17} strokeWidth={2} color="var(--tg-theme-hint-color)"
             style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }}
           />
         </button>
@@ -251,7 +248,7 @@ export default function WalletPage() {
             background: 'var(--tg-theme-button-color)',
             color: 'var(--tg-theme-button-text-color)',
             fontSize: 14, fontWeight: 600,
-            display: 'flex', alignItems: 'center', gap: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             border: 'none', cursor: 'pointer',
           }}
         >
@@ -264,9 +261,10 @@ export default function WalletPage() {
             background: 'var(--tg-theme-bg-color)',
             color: 'var(--tg-theme-text-color)',
             fontSize: 14, fontWeight: 600,
-            display: 'flex', alignItems: 'center', gap: 6,
-            border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            border: 'none', cursor: 'pointer', opacity: 0.5,
           }}
+          onClick={() => toast.info('Send feature coming soon')}
         >
           <Send size={17} /> Send
         </button>
@@ -276,19 +274,15 @@ export default function WalletPage() {
       <p className="section-title">Balances</p>
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} className="shimmer" style={{ height: 80 }} />
-          ))}
+          {[1, 2, 3].map(i => <div key={i} className="shimmer" style={{ height: 80 }} />)}
         </div>
       ) : balances.length === 0 ? (
-        <div
-          style={{
-            background: 'var(--tg-theme-bg-color)', borderRadius: 16,
-            padding: '32px 16px', textAlign: 'center',
-          }}
-        >
+        <div style={{
+          background: 'var(--tg-theme-bg-color)', borderRadius: 16,
+          padding: '32px 16px', textAlign: 'center',
+        }}>
           <p style={{ fontSize: 13, color: 'var(--tg-theme-hint-color)' }}>
-            No wallets yet. Create an invoice to generate addresses.
+            No balances yet. Create an invoice to generate addresses.
           </p>
         </div>
       ) : (

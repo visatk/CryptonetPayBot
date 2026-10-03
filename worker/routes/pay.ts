@@ -66,7 +66,7 @@ payRouter.post('/:slug/invoice', async (c) => {
   await db.insert(schema.invoices).values({
     invoiceRef: ref,
     apironeInvoiceId: invoice.invoice,
-    userId: 0,
+    userId: merchant.userId,  // use merchant owner as invoice holder for payment links
     merchantId: merchant.id,
     type: 'payment_link',
     currency: body.currency || link.currency,

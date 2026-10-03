@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import CryptoIcon, { getCryptoBg } from '../components/CryptoIcon';
 
 interface PaymentLink {
   id: number;
@@ -24,12 +25,12 @@ interface PayInvoice {
 }
 
 const CURRENCIES = [
-  { id: 'usdt@trx', label: 'USDT TRC-20', emoji: '💵' },
-  { id: 'btc', label: 'Bitcoin', emoji: '₿' },
-  { id: 'eth', label: 'Ethereum', emoji: 'Ξ' },
-  { id: 'trx', label: 'TRON', emoji: '⚡' },
-  { id: 'usdt@ton', label: 'USDT TON', emoji: '💵' },
-  { id: 'gram', label: 'TON', emoji: '💎' },
+  { id: 'usdt@trx', label: 'USDT TRC-20' },
+  { id: 'usdt@ton', label: 'USDT TON'    },
+  { id: 'btc',      label: 'Bitcoin'      },
+  { id: 'eth',      label: 'Ethereum'     },
+  { id: 'gram',     label: 'TON'          },
+  { id: 'trx',      label: 'TRON'         },
 ];
 
 export default function PaymentLinkPage() {
@@ -83,7 +84,7 @@ export default function PaymentLinkPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--tg-theme-secondary-bg-color)' }}>
         <RefreshCw size={24} className="animate-spin" style={{ color: 'var(--tg-theme-button-color)' }} />
       </div>
     );
@@ -91,55 +92,111 @@ export default function PaymentLinkPage() {
 
   if (notFound || !link) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen p-8 text-center">
-        <p className="text-5xl mb-4">🔍</p>
-        <h1 className="text-xl font-bold mb-2">Link Not Found</h1>
-        <p style={{ color: 'var(--tg-theme-hint-color)' }}>This payment link doesn't exist or has been deactivated.</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: 32, textAlign: 'center', background: 'var(--tg-theme-secondary-bg-color)' }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: 20,
+          background: 'rgba(107,114,128,0.1)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 16px',
+        }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.7">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Link Not Found</h1>
+        <p style={{ color: 'var(--tg-theme-hint-color)', fontSize: 14, margin: 0 }}>
+          This payment link doesn't exist or has been deactivated.
+        </p>
       </div>
     );
   }
 
   if (invoice) {
     const expiresIn = Math.max(0, Math.floor((new Date(invoice.expires).getTime() - Date.now()) / 60000));
+    const color = getCryptoBg(invoice.currency);
     return (
-      <div className="p-4 min-h-full" style={{ background: 'var(--tg-theme-secondary-bg-color)' }}>
-        <div className="flex flex-col items-center py-6">
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-            <span className="text-3xl">✅</span>
+      <div style={{ padding: 16, minHeight: '100%', background: 'var(--tg-theme-secondary-bg-color)' }}>
+        {/* Success header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0 20px' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: 'rgba(34,197,94,0.12)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+          }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
           </div>
-          <h1 className="text-xl font-bold mb-1">Payment Ready</h1>
-          <p className="text-sm text-center" style={{ color: 'var(--tg-theme-hint-color)' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>Payment Ready</h1>
+          <p style={{ fontSize: 13, color: 'var(--tg-theme-hint-color)', textAlign: 'center', margin: 0 }}>
             Send crypto to the address below
           </p>
         </div>
 
-        <div className="rounded-2xl overflow-hidden mb-4" style={{ background: 'var(--tg-theme-bg-color)' }}>
-          <div className="p-4 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-            <p className="text-xs" style={{ color: 'var(--tg-theme-hint-color)' }}>Pay To</p>
-            <p className="font-bold">{link.title}</p>
-            <p className="text-sm" style={{ color: 'var(--tg-theme-hint-color)' }}>by {link.merchant.name}</p>
+        <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 18, overflow: 'hidden', marginBottom: 16 }}>
+          {/* Merchant info */}
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--tg-theme-section-separator-color)' }}>
+            <p style={{ fontSize: 11, color: 'var(--tg-theme-hint-color)', margin: '0 0 2px' }}>Pay To</p>
+            <p style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{link.title}</p>
+            <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '2px 0 0' }}>
+              by {link.merchant.name}
+            </p>
           </div>
-          <div className="p-4 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-            <p className="text-xs" style={{ color: 'var(--tg-theme-hint-color)' }}>Amount</p>
-            <p className="text-2xl font-bold">{invoice.amountCrypto}</p>
-            <p className="text-sm" style={{ color: 'var(--tg-theme-hint-color)' }}>{invoice.currency.toUpperCase()} ≈ ${invoice.amountUsd}</p>
+
+          {/* Amount */}
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--tg-theme-section-separator-color)' }}>
+            <p style={{ fontSize: 11, color: 'var(--tg-theme-hint-color)', margin: '0 0 8px' }}>Amount</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <CryptoIcon currency={invoice.currency} size={40} />
+              <div>
+                <p style={{ fontSize: 20, fontWeight: 800, margin: 0, color }}>{invoice.amountCrypto}</p>
+                <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '2px 0 0' }}>
+                  {invoice.currency.toUpperCase()} ≈ ${invoice.amountUsd}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="p-4 border-b" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
-            <p className="text-xs mb-1" style={{ color: 'var(--tg-theme-hint-color)' }}>Address</p>
-            <p className="font-mono text-xs break-all mb-2">{invoice.address}</p>
-            <button onClick={copyAddress} className="flex items-center gap-1.5 text-sm font-medium" style={{ color: 'var(--tg-theme-button-color)' }}>
+
+          {/* Address */}
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--tg-theme-section-separator-color)' }}>
+            <p style={{ fontSize: 11, color: 'var(--tg-theme-hint-color)', margin: '0 0 6px' }}>Address</p>
+            <p style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all', margin: '0 0 10px' }}>
+              {invoice.address}
+            </p>
+            <button
+              onClick={copyAddress}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600,
+                color: copied ? '#22c55e' : 'var(--tg-theme-button-color)',
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              }}
+            >
               {copied ? <Check size={14} /> : <Copy size={14} />}
               {copied ? 'Copied!' : 'Copy Address'}
             </button>
           </div>
-          <div className="p-3">
-            <p className="text-xs" style={{ color: 'var(--tg-theme-hint-color)' }}>⏱ Expires in ~{expiresIn} minutes</p>
+
+          {/* Timer */}
+          <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--tg-theme-hint-color)" strokeWidth="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: 0 }}>
+              Expires in ~{expiresIn} minutes
+            </p>
           </div>
         </div>
 
-        <a href={invoice.invoiceUrl} target="_blank" rel="noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-semibold text-white"
-          style={{ background: 'var(--tg-theme-button-color)' }}
+        <a
+          href={invoice.invoiceUrl}
+          target="_blank" rel="noreferrer"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            width: '100%', padding: '15px', borderRadius: 14,
+            background: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)',
+            fontSize: 15, fontWeight: 700, textDecoration: 'none',
+          }}
+          className="pressable"
         >
           <ExternalLink size={18} /> Open Invoice Page
         </a>
@@ -148,60 +205,102 @@ export default function PaymentLinkPage() {
   }
 
   return (
-    <div className="p-4 min-h-full" style={{ background: 'var(--tg-theme-secondary-bg-color)' }}>
+    <div style={{ padding: 16, minHeight: '100%', background: 'var(--tg-theme-secondary-bg-color)' }}>
       {/* Header */}
-      <div className="rounded-2xl p-5 mb-5 text-center" style={{ background: 'var(--tg-theme-bg-color)' }}>
-        <p className="text-4xl mb-2">💳</p>
-        <h1 className="text-xl font-bold">{link.title}</h1>
-        {link.description && <p className="text-sm mt-1" style={{ color: 'var(--tg-theme-hint-color)' }}>{link.description}</p>}
-        <p className="text-xs mt-2" style={{ color: 'var(--tg-theme-hint-color)' }}>by {link.merchant.name}</p>
+      <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 20, padding: '24px 20px', marginBottom: 16, textAlign: 'center' }}>
+        <div style={{
+          width: 60, height: 60, borderRadius: 18,
+          background: 'color-mix(in srgb, var(--tg-theme-button-color) 12%, transparent)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 12px',
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--tg-theme-button-color)" strokeWidth="1.8">
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+            <line x1="1" y1="10" x2="23" y2="10"/>
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px' }}>{link.title}</h1>
+        {link.description && (
+          <p style={{ fontSize: 13, color: 'var(--tg-theme-hint-color)', margin: '4px 0 4px', lineHeight: 1.5 }}>
+            {link.description}
+          </p>
+        )}
+        <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '4px 0 0' }}>
+          by {link.merchant.name}
+        </p>
       </div>
 
-      <div className="space-y-3">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {/* Amount */}
         {link.amountUsd ? (
-          <div className="rounded-2xl p-4" style={{ background: 'var(--tg-theme-bg-color)' }}>
-            <p className="text-xs" style={{ color: 'var(--tg-theme-hint-color)' }}>Amount</p>
-            <p className="text-3xl font-bold">${link.amountUsd.toFixed(2)}</p>
+          <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 16, padding: '16px' }}>
+            <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '0 0 4px' }}>Amount</p>
+            <p style={{ fontSize: 32, fontWeight: 800, margin: 0 }}>${link.amountUsd.toFixed(2)}</p>
+            <p style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', margin: '2px 0 0' }}>USD</p>
           </div>
         ) : (
-          <div className="rounded-2xl p-4" style={{ background: 'var(--tg-theme-bg-color)' }}>
-            <label className="text-xs" style={{ color: 'var(--tg-theme-hint-color)' }}>Enter Amount (USD) *</label>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xl font-bold">$</span>
-              <input type="number" placeholder="0.00" value={customAmount}
+          <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 16, padding: '16px' }}>
+            <label style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)' }}>Enter Amount (USD) *</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+              <span style={{ fontSize: 24, fontWeight: 700 }}>$</span>
+              <input
+                type="number" placeholder="0.00" value={customAmount}
                 onChange={e => setCustomAmount(e.target.value)}
-                className="flex-1 bg-transparent outline-none text-xl font-bold"
-                style={{ color: 'var(--tg-theme-text-color)' }}
+                style={{ flex: 1, fontSize: 24, fontWeight: 700, background: 'transparent', border: 'none', outline: 'none', color: 'var(--tg-theme-text-color)' }}
               />
             </div>
           </div>
         )}
 
         {/* Currency */}
-        <div className="rounded-2xl p-4" style={{ background: 'var(--tg-theme-bg-color)' }}>
-          <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--tg-theme-hint-color)' }}>Currency</label>
-          <div className="flex flex-wrap gap-2">
-            {CURRENCIES.map(c => (
-              <button key={c.id} onClick={() => setCurrency(c.id)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium"
-                style={currency === c.id
-                  ? { background: 'var(--tg-theme-button-color)', color: 'white' }
-                  : { background: 'var(--tg-theme-secondary-bg-color)' }
-                }
-              >
-                {c.emoji} {c.label}
-              </button>
-            ))}
+        <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: 16, padding: '16px' }}>
+          <label style={{ fontSize: 12, color: 'var(--tg-theme-hint-color)', display: 'block', marginBottom: 10 }}>
+            Pay with
+          </label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {CURRENCIES.map(c => {
+              const active = currency === c.id;
+              const color  = getCryptoBg(c.id);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setCurrency(c.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    padding: '8px 12px', borderRadius: 12,
+                    background: active ? `${color}12` : 'var(--tg-theme-secondary-bg-color)',
+                    border: active ? `1.5px solid ${color}` : '1.5px solid transparent',
+                    color: active ? color : 'var(--tg-theme-text-color)',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  }}
+                  className="pressable"
+                >
+                  <CryptoIcon currency={c.id} size={20} bg={false} />
+                  {c.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <button onClick={createPayment} disabled={paying || (!link.amountUsd && !customAmount)}
-          className="w-full py-4 rounded-2xl font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-          style={{ background: 'var(--tg-theme-button-color)' }}
+        <button
+          onClick={createPayment}
+          disabled={paying || (!link.amountUsd && !customAmount)}
+          style={{
+            width: '100%', padding: '15px', borderRadius: 14,
+            background: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)',
+            fontSize: 15, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            border: 'none', cursor: 'pointer',
+            opacity: (paying || (!link.amountUsd && !customAmount)) ? 0.5 : 1,
+          }}
+          className="pressable"
         >
-          {paying ? <RefreshCw size={18} className="animate-spin" /> : null}
-          {paying ? 'Creating Payment…' : '💰 Pay Now'}
+          {paying ? (
+            <><RefreshCw size={18} className="animate-spin" /> Creating Payment…</>
+          ) : (
+            <><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg> Pay Now</>
+          )}
         </button>
       </div>
     </div>

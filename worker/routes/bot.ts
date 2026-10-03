@@ -166,6 +166,8 @@ async function handleCallbackQuery(cq: TelegramCallbackQuery, db: DB, env: Env) 
     if (user) await handleBalance(userId, user, env);
   } else if (data === 'help') {
     await sendHelp(userId, env);
+  } else if (data === 'channel_list') {
+    await handleChannelList(userId, db, env);
   } else if (data.startsWith('pay_pro_')) {
     const currency = data.slice('pay_pro_'.length);
     await handlePayPro(userId, currency, db, env);
@@ -306,6 +308,15 @@ async function handleStart(userId: number, user: typeof schema.users.$inferSelec
       await handleChannelProduct(userId, productId, db, env);
       return;
     }
+  }
+
+  // Deep link: pay_<slug> — open payment link in mini app
+  if (param?.startsWith('pay_')) {
+    const slug = param.slice('pay_'.length);
+    await sendTelegramMenuMessage(userId, `💳 <b>Payment Link</b>\n\nTap below to open the payment page:`, [[
+      { text: '💰 Pay Now', web_app: { url: `${env.MINIAPP_URL}/pay/${slug}` } },
+    ]], env);
+    return;
   }
 
   const isPro = user.plan === 'pro';
@@ -656,4 +667,41 @@ async function handleAdmin(userId: number, db: DB, env: Env) {
     [[{ text: '🔧 Admin Panel', web_app: { url: `${env.MINIAPP_URL}/admin` } }]],
     env
   );
+}
+
+// ─── Channel list (browse available channels) ─────────────────────────────────
+async function handleChannelList(userId: number, db: DB, env: Env) {
+  const products = await db.query.channelProducts.findMany({
+    where: (t, { eq }) => eq(t.isActive, true),
+    with: {
+      subscriptionPlans: { where: (t, { eq }) => eq(t.isActive, true) },
+    },
+  });
+
+  if (!products.length) {
+    await sendTelegramMenuMessage(userId,
+      `📢 <b>Premium Channels</b>\n\nNo channels available yet.\n\nBecome a merchant to list your channel!`,
+      [[{ text: '🏪 Become Merchant', web_app: { url: `${env.MINIAPP_URL}/merchant` } }]],
+      env
+    );
+    return;
+  }
+
+  let text = `📢 <b>Premium Channels & Groups</b>\n\n`;
+  const buttons: Array<Array<{ text: string; callback_data?: string; web_app?: { url: string } }>> = [];
+
+  for (const p of products.slice(0, 8)) {
+    const minPrice = p.subscriptionPlans.length
+      ? Math.min(...p.subscriptionPlans.map(s => s.priceUsd))
+      : null;
+    const typeIcon = p.chatType === 'channel' ? '📢' : '👥';
+    text += `${typeIcon} <b>${p.chatTitle}</b>`;
+    if (minPrice !== null) text += ` — from $${minPrice}`;
+    text += `\n`;
+    buttons.push([{ text: `${typeIcon} ${p.chatTitle}`, callback_data: `channel_${p.id}` }]);
+  }
+
+  buttons.push([{ text: '🔍 Browse All', web_app: { url: `${env.MINIAPP_URL}/channels` } }]);
+
+  await sendTelegramMenuMessage(userId, text, buttons, env);
 }

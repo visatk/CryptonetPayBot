@@ -40,7 +40,7 @@ app.use('*', logger());
 app.use('/api/*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Telegram-InitData'],
 }));
 
 // Inject Drizzle DB into context
