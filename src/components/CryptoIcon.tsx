@@ -58,6 +58,8 @@ export default function CryptoIcon({ currency, size = 36, bg = true }: Props) {
   );
 }
 
+import type { JSX } from 'react';
+
 function getInnerSvg(currency: string): JSX.Element {
   const c = currency.toLowerCase();
 
